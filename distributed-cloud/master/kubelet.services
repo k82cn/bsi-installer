@@ -1,2 +1,6 @@
 [Unit]
-Description=OpenBSI Master
+Description=OpenBSI Master Service
+
+[Service]
+ExecStart=/usr/local/openbsi/sbin/kubelet /usr/local/openbsi/conf/kubelet.conf
+ExecReload=/bin/kill -HUP $MAINPID
