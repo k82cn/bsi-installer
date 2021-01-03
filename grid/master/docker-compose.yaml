@@ -1,0 +1,60 @@
+version: '3.3'
+
+services:
+   etcd:
+     image: quay.io/coreos/etcd:v3.3.25
+     command:
+       - /usr/local/bin/etcd
+       - --data-dir=/opt/etcd_data_dir
+       - --advertise-client-urls=http://0.0.0.0:2379
+       - --listen-client-urls=http://0.0.0.0:2379
+     volumes:
+       - /usr/local/openbsi/work/etcd:/opt/etcd_data_dir
+     restart: always
+
+   apiserver:
+     depends_on:
+       - etcd
+     image: openbsi/kube-apiserver:1.19
+     command:
+       - /usr/bin/kube-apiserver
+       - --service-cluster-ip-range=10.0.0.0/16
+       - --etcd-servers=http://etcd:2379
+       - --insecure-bind-address=0.0.0.0
+       - --disable-admission-plugins=ServiceAccount
+     ports:
+       - "8080:8080"
+     restart: always
+
+   controller-managers:
+     depends_on:
+       - apiserver
+     image: openbsi/kube-controller-manager:1.19
+     command:
+       - /usr/bin/kube-controller-manager
+       - --master=http://apiserver:8080
+     restart: always
+
+   install_crd:
+     depends_on:
+       - apiserver
+     image: openbsi/kubectl:1.19
+     command:
+       - /usr/bin/kubectl
+       - apply
+       - -s
+       - http://apiserver:8080
+       - -f
+       - /opt/crds/volcano-crds.yaml
+     volumes:
+       - /usr/local/openbsi/crds:/opt/crds
+
+   volcano-scheduler:
+     depends_on:
+       - apiserver
+     image: openbsi/volcano-scheduler:1.1.1
+     command:
+       - /usr/bin/vc-scheduler
+       - --scheduler-name=default
+       - --master=http://apiserver:8080
+     restart: always
